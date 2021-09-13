@@ -48,7 +48,7 @@
     "@types/tampermonkey": "^4.0.5",
     "@types/node": "^16.9.1",
     "@typescript-eslint/eslint-plugin": "^4.31.0",
-    "@typescript-eslint/parser": "^4.31.0",
+    "@typescript-eslint/parser": "^4.31.1",
     "@userscripters/generate-headers": "^2.6.0",
     "@userscripters/generate-readme": "^2.1.1",
     "@userscripters/stackexchange-global-types": "^2.2.0",
