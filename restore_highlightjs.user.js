@@ -1,20 +1,24 @@
 // ==UserScript==
 // @name         Restore highlight.js
 // @namespace    userscripters
-// @version      1.0.0
+// @version      1.0.1
 // @author       double-beep
+// @contributor  Scratte
 // @description  Restore highlight.js functionality on revisions and review, since it's removed: https://meta.stackoverflow.com/a/408993
-// @match        *://*.stackexchange.com/*
-// @match        *://*.stackoverflow.com/*
-// @match        *://*.superuser.com/*
-// @match        *://*.serverfault.com/*
-// @match        *://*.askubuntu.com/*
-// @match        *://*.stackapps.com/*
-// @match        *://*.mathoverflow.net/*
+// @include      /^https://[^/]+\.stackexchange\.com/(review\/suggested-edits|posts\/\d*\/revisions$)/
+// @include      /^https://([^/]*\.)?stackoverflow\.com/(review\/suggested-edits|posts\/\d*\/revisions$)/
+// @include      /^https://(meta\.)?superuser\.com/(review\/suggested-edits|posts\/\d*\/revisions$)/
+// @include      /^https://(meta\.)?serverfault\.com/(review\/suggested-edits|posts\/\d*\/revisions$)/
+// @include      /^https://(meta\.)?askubuntu\.com/(review\/suggested-edits|posts\/\d*\/revisions$)/
+// @include      /^https://(meta\.)?mathoverflow\.net/(review\/suggested-edits|posts\/\d*\/revisions$)/
+// @include      /^https://stackapps\.com/(review\/suggested-edits|posts\/\d*\/revisions$)/
 // @run-at       document-start
 // @grant        none
+// @license      GPL-3.0
 // @updateURL    https://raw.githubusercontent.com/userscripters/restore-highlightjs/master/restore_highlightjs.user.js
 // @downloadURL  https://raw.githubusercontent.com/userscripters/restore-highlightjs/master/restore_highlightjs.user.js
+// @homepageURL  https://github.com/userscripters/restore-highlightjs
+// @supportURL   https://github.com/userscripters/restore-highlightjs/issues
 // ==/UserScript==
 /* globals hljs */
 
@@ -23,10 +27,6 @@
 
     const reviewRequestRegex = /\/review\/(next-task|task-reviewed)/;
     const revisionsRequestRegex = /revisions\/\d+\//; // when loading a revision's body
-    const onRevisionsPage = /posts\/\d*\/revisions$/.test(window.location.href);
-    const onReviewSuggestedEditPage = /review\/suggested-edits/.test(window.location.href);
-
-    if (!onRevisionsPage && !onReviewSuggestedEditPage) return; // page has not highlight.js disabled
 
     /* start of copied code */
     // This code has been copied from this GitHub issue https://github.com/highlightjs/highlight.js/issues/2889
