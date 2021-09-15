@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         Restore highlight.js
 // @namespace    userscripters
-// @version      1.0.1
+// @version      1.0.2
 // @author       double-beep
 // @contributor  Scratte
 // @description  Restore highlight.js functionality on revisions and review, since it's removed: https://meta.stackoverflow.com/a/408993
+// @license      GPL-3.0
+
 // @include      /^https://[^/]+\.stackexchange\.com/(review\/suggested-edits|posts\/\d*\/revisions$)/
 // @include      /^https://([^/]*\.)?stackoverflow\.com/(review\/suggested-edits|posts\/\d*\/revisions$)/
 // @include      /^https://(meta\.)?superuser\.com/(review\/suggested-edits|posts\/\d*\/revisions$)/
@@ -14,7 +16,7 @@
 // @include      /^https://stackapps\.com/(review\/suggested-edits|posts\/\d*\/revisions$)/
 // @run-at       document-start
 // @grant        none
-// @license      GPL-3.0
+
 // @updateURL    https://raw.githubusercontent.com/userscripters/restore-highlightjs/master/restore_highlightjs.user.js
 // @downloadURL  https://raw.githubusercontent.com/userscripters/restore-highlightjs/master/restore_highlightjs.user.js
 // @homepageURL  https://github.com/userscripters/restore-highlightjs
@@ -72,9 +74,6 @@
                     });
                     // eslint-disable-next-line no-param-reassign
                     offset = _nodeStream(child, offset);
-                    // Prevent void elements from having an end tag that would actually
-                    // double them in the output. There are more void elements in HTML
-                    // but we list only those realistically expected in code display.
                     if (!tag(child).match(/br|hr|img|input/)) {
                         result.push({
                             event: 'stop',
@@ -155,6 +154,10 @@
     script.src = 'https://cdn.sstatic.net/Js/highlightjs-loader.en.js';
     script.addEventListener('load', () => {
         hljs.addPlugin(new MergeHtmlPlugin());
+        hljs.configure({
+            cssSelector: 'pre > code:not(.hljs)', // avoid highlighting already highlighted code blocks
+            ignoreUnescapedHTML: true // disable warnings about unescaped HTML, requested by Scratte: https://chat.stackoverflow.com/transcript/message/53028641
+        });
         highlightCodeBlocks();
     });
     document.head.appendChild(script);
