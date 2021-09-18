@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Restore highlight.js
 // @namespace    userscripters
-// @version      1.0.2
+// @version      1.0.3
 // @author       double-beep
 // @contributor  Scratte
 // @description  Restore highlight.js functionality on revisions and review, since it's removed: https://meta.stackoverflow.com/a/408993
@@ -145,8 +145,7 @@
 
     function highlightCodeBlocks() {
         // This is what SE uses in full.en.js
-        // document.querySelectorAll('pre.s-code-block code:not(.hljs)').forEach(element => hljs.highlightElement(element));
-        hljs.highlightAll(); // we'll use this because why not
+        document.querySelectorAll('pre.s-code-block code:not(.hljs)').forEach(element => hljs.highlightElement(element));
     }
 
     // load the library's JS
