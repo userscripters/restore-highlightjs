@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Restore highlight.js
 // @namespace    userscripters
-// @version      1.0.3
+// @version      1.1.0
 // @author       double-beep
 // @contributor  Scratte
 // @description  Restore highlight.js functionality on revisions and review, since it's removed: https://meta.stackoverflow.com/a/408993
@@ -143,7 +143,43 @@
     }
     /* end of copied code */
 
-    function highlightCodeBlocks() {
+    async function getPreferredLang() {
+        const tags = [...document.querySelectorAll('.post-tag')]
+            .filter(tag => !tag.firstElementChild?.classList?.contains('diff-delete'))
+            .map(tag => tag.innerText);
+        if (!tags.length) return;
+
+        const request = await fetch(`/api/tags/langdiv?tags=${tags.join(' ')}`);
+        const response = await request.text();
+        const parsedElement = new DOMParser().parseFromString(response, 'text/html');
+        const preferredLang = parsedElement.body.querySelector('div').innerText;
+
+        return preferredLang;
+    }
+
+    async function highlightCodeBlocks() {
+        const isOnReviews = location.href.includes('/review/');
+        // on reviews, we must fetch the preferred language
+        const preferredLang = await getPreferredLang();
+
+        // adapted from full.en.js so as to not rely on SE
+        [...document.querySelectorAll('.js-post-body pre code, .js-wmd-preview pre code')].map(element => element.parentElement).forEach(element => {
+            const classes = {
+                highlight: 's-code-block',
+                override: 'prettyprint-override',
+                preferred: isOnReviews ? preferredLang : document.querySelector('#js-codeblock-lang')?.innerText || ''
+            };
+
+            if (element.classList.contains(classes.override)) {
+                element.classList.remove(classes.override);
+                element.classList.add(classes.override);
+            }
+
+            if (!element.classList.contains(classes.highlight) && classes.preferred) {
+                element.classList.add(classes.highlight, classes.preferred);
+            }
+        });
+
         // This is what SE uses in full.en.js
         document.querySelectorAll('pre.s-code-block code:not(.hljs)').forEach(element => hljs.highlightElement(element));
     }
