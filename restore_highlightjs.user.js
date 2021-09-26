@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Restore highlight.js
 // @namespace    userscripters
-// @version      1.1.0
+// @version      1.2.0
 // @author       double-beep
 // @contributor  Scratte
 // @description  Restore highlight.js functionality on revisions and review, since it's removed: https://meta.stackoverflow.com/a/408993
@@ -22,13 +22,10 @@
 // @homepageURL  https://github.com/userscripters/restore-highlightjs
 // @supportURL   https://github.com/userscripters/restore-highlightjs/issues
 // ==/UserScript==
-/* globals hljs */
+/* globals hljs, StackExchange */
 
 (function() {
     'use strict';
-
-    const reviewRequestRegex = /\/review\/(next-task|task-reviewed)/;
-    const revisionsRequestRegex = /revisions\/\d+\//; // when loading a revision's body
 
     /* start of copied code */
     // This code has been copied from this GitHub issue https://github.com/highlightjs/highlight.js/issues/2889
@@ -143,36 +140,68 @@
     }
     /* end of copied code */
 
-    async function getPreferredLang() {
-        const tags = [...document.querySelectorAll('.post-tag')]
-            .filter(tag => !tag.firstElementChild?.classList?.contains('diff-delete'))
-            .map(tag => tag.innerText);
-        if (!tags.length) return;
+    const reviewRequestRegex = /\/review\/(next-task|task-reviewed)/;
+    const revisionsRequestRegex = /revisions\/\d+\//;
+    const editStartedRegex = /\/review\/inline-edit-post/;
+    const validateTagsRequestRegex = /\/posts\/validate-tags/;
+    let preferredLanguage = '';
 
-        const request = await fetch(`/api/tags/langdiv?tags=${tags.join(' ')}`);
+    async function waitForPreview(selector) {
+        while (!document.querySelector(selector).innerText) {
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+    }
+
+    function getTagsFromRevisionOrReview() {
+        return [...document.querySelectorAll('.post-tag')]
+            .filter(tag => !tag.firstElementChild?.classList?.contains('diff-delete'))
+            .map(tag => tag.innerText)
+            .join(' ');
+    }
+
+    function getTagsFromPostEditor() {
+        const tagInput = document.querySelector('#tageditor-replacing-tagnames--input');
+        const tags = [...document.querySelectorAll('.js-tag-editor .s-tag')].map(tagElement => tagElement.firstChild.textContent);
+        if (tagInput) tags.push(tagInput.value); // tag name written, but not yet converted to an s-tag
+
+        return tags.join(' ');
+    }
+
+    async function getPreferredLang() {
+        // tags may not exist in the post editor if we're editing an answer
+        // so we need to fetch them from the question tab instead
+        const postTags = getTagsFromRevisionOrReview();
+        const editorTags = getTagsFromPostEditor();
+        const tags = editorTags || postTags;
+        if (!tags // no tags found
+            || (preferredLanguage && postTags && !editorTags) // editing an answer (no tags in the editor) => result cached in preferredLanguage
+           ) return;
+
+        const request = await fetch(`/api/tags/langdiv?tags=${tags}`);
         const response = await request.text();
         const parsedElement = new DOMParser().parseFromString(response, 'text/html');
         const preferredLang = parsedElement.body.querySelector('div').innerText;
 
-        return preferredLang;
+        preferredLanguage = preferredLang;
     }
 
     async function highlightCodeBlocks() {
-        const isOnReviews = location.href.includes('/review/');
         // on reviews, we must fetch the preferred language
-        const preferredLang = await getPreferredLang();
+        const isOnReviews = location.href.includes('/review/');
+        await getPreferredLang();
 
         // adapted from full.en.js so as to not rely on SE
         [...document.querySelectorAll('.js-post-body pre code, .js-wmd-preview pre code')].map(element => element.parentElement).forEach(element => {
             const classes = {
                 highlight: 's-code-block',
                 override: 'prettyprint-override',
-                preferred: isOnReviews ? preferredLang : document.querySelector('#js-codeblock-lang')?.innerText || ''
+                preferred: isOnReviews ? preferredLanguage : document.querySelector('#js-codeblock-lang')?.innerText || ''
             };
 
             if (element.classList.contains(classes.override)) {
                 element.classList.remove(classes.override);
-                element.classList.add(classes.override);
+                element.classList.add(classes.highlight);
             }
 
             if (!element.classList.contains(classes.highlight) && classes.preferred) {
@@ -181,7 +210,10 @@
         });
 
         // This is what SE uses in full.en.js
-        document.querySelectorAll('pre.s-code-block code:not(.hljs)').forEach(element => hljs.highlightElement(element));
+        // document.querySelectorAll('pre.s-code-block code:not(.hljs)').forEach(element => hljs.highlightElement(element));
+
+        // We've set the same selector below - see the hljs.configure() call - so hljs.highlightAll() is fine as well
+        hljs.highlightAll();
     }
 
     // load the library's JS
@@ -190,7 +222,7 @@
     script.addEventListener('load', () => {
         hljs.addPlugin(new MergeHtmlPlugin());
         hljs.configure({
-            cssSelector: 'pre > code:not(.hljs)', // avoid highlighting already highlighted code blocks
+            cssSelector: 'pre.s-code-block code:not(.hljs)', // avoid highlighting already highlighted code blocks
             ignoreUnescapedHTML: true // disable warnings about unescaped HTML, requested by Scratte: https://chat.stackoverflow.com/transcript/message/53028641
         });
         highlightCodeBlocks();
@@ -200,8 +232,27 @@
     const originalOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function() {
         this.addEventListener('load', function() {
-            if (!reviewRequestRegex.test(this.responseURL) && !revisionsRequestRegex.test(this.responseURL)) return;
-            highlightCodeBlocks();
+            if (reviewRequestRegex.test(this.responseURL) // a new review item has been loaded
+                || revisionsRequestRegex.test(this.responseURL) // a revision item has been expanded
+               ) highlightCodeBlocks();
+
+            if (editStartedRegex.test(this.responseURL)) { // user has started editing a post
+                // in order to create the preview, SE needs to dynamically load markdownit, so we need to wait for that
+                waitForPreview('.wmd-preview').then(highlightCodeBlocks);
+
+                const editorTextarea = document.querySelector('.wmd-input');
+                // see: https://dev.stackoverflow.com/content/Js/stub.en.js, https://github.com/dennyferra/TypeWatch
+                // dependance on jQuery inevitable
+                $(editorTextarea).typeWatch({
+                    highlight: false, // Highlights the element when it receives focus
+                    wait: 2000, // The number of milliseconds to wait after the the last key press before firing the callback (SE uses 5000)
+                    captureLength: 5, // Minimum # of characters necessary to fire the callback
+                    callback: highlightCodeBlocks // The callback function
+                });
+            } else if (validateTagsRequestRegex.test(this.responseURL)) { // tags have changed and SE wants to validate them
+                StackExchange.MarkdownEditor.refreshAllPreviews(); // un-highlight code in preview
+                highlightCodeBlocks();
+            }
         });
         originalOpen.apply(this, arguments);
     };
