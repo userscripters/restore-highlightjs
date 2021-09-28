@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Restore highlight.js
 // @namespace    userscripters
-// @version      1.2.0
+// @version      1.2.1
 // @author       double-beep
 // @contributor  Scratte
 // @description  Restore highlight.js functionality on revisions and review, since it's removed: https://meta.stackoverflow.com/a/408993
@@ -192,7 +192,7 @@
         await getPreferredLang();
 
         // adapted from full.en.js so as to not rely on SE
-        [...document.querySelectorAll('.js-post-body pre code, .js-wmd-preview pre code')].map(element => element.parentElement).forEach(element => {
+        [...document.querySelectorAll('.js-post-body pre, .js-wmd-preview pre')].forEach(element => {
             const classes = {
                 highlight: 's-code-block',
                 override: 'prettyprint-override',
@@ -225,7 +225,7 @@
             cssSelector: 'pre.s-code-block code:not(.hljs)', // avoid highlighting already highlighted code blocks
             ignoreUnescapedHTML: true // disable warnings about unescaped HTML, requested by Scratte: https://chat.stackoverflow.com/transcript/message/53028641
         });
-        highlightCodeBlocks();
+        window.addEventListener('load', highlightCodeBlocks);
     });
     document.head.appendChild(script);
 
