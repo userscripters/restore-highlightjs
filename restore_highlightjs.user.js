@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Restore highlight.js
 // @namespace    userscripters
-// @version      1.2.1
+// @version      1.2.2
 // @author       double-beep
 // @contributor  Scratte
 // @description  Restore highlight.js functionality on revisions and review, since it's removed: https://meta.stackoverflow.com/a/408993
@@ -140,6 +140,7 @@
     }
     /* end of copied code */
 
+    const isOnReviews = location.href.includes('/review/');
     const reviewRequestRegex = /\/review\/(next-task|task-reviewed)/;
     const revisionsRequestRegex = /revisions\/\d+\//;
     const editStartedRegex = /\/review\/inline-edit-post/;
@@ -175,7 +176,9 @@
         const editorTags = getTagsFromPostEditor();
         const tags = editorTags || postTags;
         if (!tags // no tags found
-            || (preferredLanguage && postTags && !editorTags) // editing an answer (no tags in the editor) => result cached in preferredLanguage
+            // editing an answer (no tags in the editor) => result cached in preferredLanguage
+            // not the case on reviews, however
+            || (preferredLanguage && postTags && !editorTags && !isOnReviews)
            ) return;
 
         const request = await fetch(`/api/tags/langdiv?tags=${tags}`);
@@ -187,8 +190,6 @@
     }
 
     async function highlightCodeBlocks() {
-        // on reviews, we must fetch the preferred language
-        const isOnReviews = location.href.includes('/review/');
         await getPreferredLang();
 
         // adapted from full.en.js so as to not rely on SE
