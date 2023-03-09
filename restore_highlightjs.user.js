@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Restore highlight.js
 // @namespace    userscripters
-// @version      1.2.2
+// @version      1.2.3
 // @author       double-beep
 // @contributor  Scratte
 // @description  Restore highlight.js functionality on revisions and review, since it's removed: https://meta.stackoverflow.com/a/408993
@@ -183,8 +183,17 @@
 
         const request = await fetch(`/api/tags/langdiv?tags=${tags}`);
         const response = await request.text();
+
+        // sometimes, too many requests are made and we must wait some seconds
+        // before the next request is made
+        const rateLimit = /You can perform this action again in \d+ seconds?/;
+        if (rateLimit.test(response)) {
+            await new Promise(resolve => setTimeout(resolve, 2 * 1000));
+            return getPreferredLang(); // try again after waiting
+        }
+
         const parsedElement = new DOMParser().parseFromString(response, 'text/html');
-        const preferredLang = parsedElement.body.querySelector('div').innerText;
+        const preferredLang = parsedElement.body.querySelector('div')?.innerText;
 
         preferredLanguage = preferredLang;
     }
@@ -246,7 +255,7 @@
                 // dependance on jQuery inevitable
                 $(editorTextarea).typeWatch({
                     highlight: false, // Highlights the element when it receives focus
-                    wait: 2000, // The number of milliseconds to wait after the the last key press before firing the callback (SE uses 5000)
+                    wait: 5000, // The number of milliseconds to wait after the the last key press before firing the callback (SE uses 5000)
                     captureLength: 5, // Minimum # of characters necessary to fire the callback
                     callback: highlightCodeBlocks // The callback function
                 });
